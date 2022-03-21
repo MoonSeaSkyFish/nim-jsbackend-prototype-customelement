@@ -1,20 +1,13 @@
-# Function.prototype and Custom elements on nim's jsbackend
+# nimでカスタムエレメントを作れるかがんばってみた、疲れた
 
-## Function.prototype
+## まず、1.5までなんだって
 
-document.registerElementは廃止になったので注意。変わりにwindow.customElements.defineを使う。
+nim の javascriptの対応バージョンは、1.5まででそれ以降は対応予定はないそうです。
+なのでES6で登場したclass構文には、対応することはないようです。
 
+まずは、nimでjavascriptのprototypeでのオブジェクトの作成の方法を紹介します。
 
-```html
-<script src="prototype.js"></script>
-```
-
-```cmd
-% nim js prototype.js
-```
-open html.
-
-### Guid?
+javascriptで書くと以下のものです。
 
 ```javascript
 function testObj(){}
@@ -23,7 +16,12 @@ var o = new testObj()
 o.say()
 ```
 
-From this js sample to nim. 
+で……これをnimで記述するのに悩みました。
+クラスじゃん？ type xxx = object of JsObject とかで書くと思ったわけですよ。
+で、うまくいかず悩んでいたら、ふと、functionなんだから、procでいけるんじゃね？
+と思ったらうまくいきました、という話です。
+
+さて、nimに上のコードを置き換えたものが下記のものです。
 
 ```nim
 import jsffi
@@ -44,12 +42,39 @@ var o = jsNew(testObj)
 o.say()
 ```
 
-## Custom Elements
+いやあ、importjs 便利すぎです。
+
+{.importjs: "#.prototype[#] = #".}
+
+こんな、= で結んだ構文にまで利用可能とは驚きでした。
+
+ここも悩んだ末、たどり着きました。
+
+aaa.prototype.bbb = function(){}
+
+これのaaaはprocの名前わたすからいけるけれど、bbbの部分はどうやって渡すのよ？ で、javascriptのこれって、["bbb"]と同じだって思い出したわけです。それでbbbの部分には文字列を渡すことにしました。
+
+↓ここね。
+
+```nim
+proc defProtoType(
+  obj: auto,
+  methodName: cstring,
+  functionBody: auto) {.importjs: "#.prototype[#] = #".}
+```
+
+あとは、特に説明はいらないはず！
+
+では、次にカスタムエレメント！
+
+## カスタムエレメント - custome element
+
+よくあるサンプルは下のようなものでしょうか。
 
 ```javascript
 class testTag extends HTMLElement{
   constructor(){
-    super()
+    super() // カスタムエレメントでは必須!
   }
   connectedCallback(){
     this.textContent = "Hello, test tag"
@@ -58,18 +83,18 @@ class testTag extends HTMLElement{
 customElements.define("test-tag", testTag)
 ```
 
+これをhtmlで、下のようにかけば、「Hello, test tag」と表示されるという仕組みですね。
+
 ```html
-<script src="FILENAME.js"></script>
 <test-tag></test-tag>
 ```
+でも、nimでclass構文に置換する方法は……emitプラグマを使えば可能ですが、まあ、それはやりたくない。
 
-Open html, printed "Hello, test tag".
-
-No use class semantic on js. This used prototype.
+javascriptですから、class構文ではなく、prototypeで作る方法があるのでは？ と調査した結果、下記の方法でいけることがわかりました。
 
 ```javascript
 function testTag(){
-  // super()
+  // ↓これは class構文のコンストラクタ内のsuper()と同じもの
   return  Reflect.construct(HTMLElement, [], new.target)
 }
 Object.setPrototypeOf(testTag.prototype, HTMLElement.prototype)
@@ -77,7 +102,7 @@ testTag.prototype.connectedCallback = function(){ this.textContent = "Hello, tes
 customElements.define("test-tag", testTag)
 ```
 
-From this js sample to nim. 
+そう、これを、上のprototypeで行った方法でnimに置き換えてあげればいい！ その結果が下記のコードです。
 
 ```nim
 import jsffi
@@ -107,12 +132,45 @@ setPrototypeOf(testTag, HTMLElement)
 win.customElements.define("test-tag", testTag)
 ```
 
-```cmd
-% nim js ...
+とりあえず、thisの呼び方がわからないので、setThisPropとかしてます。
+
+こんなところでしょうか。
+
+かなり基本的な部分ですが、ここからは、さほど難しくない…と思いますが、プロパティとかの実現方法は調査中です。わかったら追記しますね。
+
+## おまけ
+
+標準の htmlgenのコードをみると……
+
+```nim
+macro abbr*(e: varargs[untyped]): untyped =
+  ## Generates the HTML `abbr` element.
+  result = xmlCheckedTag(e, "abbr", commonAttr)
 ```
 
-Open html, printed "Hello, test tag".
+とあります。これを真似れば独自タグをhtmlgenと同じように扱えるじゃありませんか。xmlCheckedTagには、*がついていますし。
 
+```nim
+macro testTag*(e: varargs[untyped]): untyped =
+  result = xmlCheckedTag(e, "test-tag", commonAttr)
+```
+
+これで、
+
+```nim
+body(testTag("おはー"), p("おはじゃねーよ"))
+```
+
+とか書くことが可能になります。追加のattributeは、aタグを参考にしましょう。
+
+```nim
+macro a*(e: varargs[untyped]): untyped =
+  ## Generates the HTML `a` element.
+  result = xmlCheckedTag(e, "a", "href target download rel hreflang type " &
+    commonAttr)
+```
+
+え？ karax ? karaxは今勉強中です。
 
 ## 参考サイト
 - https://www.tohoho-web.com/ex/custom-elements.html
