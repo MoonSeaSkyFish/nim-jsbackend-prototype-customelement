@@ -1,0 +1,21 @@
+<h1>sample custom element used prototype</h1>
+
+<script>
+function testTag(){
+  return  Reflect.construct(HTMLElement, [], new.target)
+}
+Object.setPrototypeOf(testTag.prototype, HTMLElement.prototype)
+testTag.prototype.connectedCallback = function(){
+  this.textContent = "Hello, test tag pro " + this.myname
+}
+
+testTag["observedAttributes"] =  ["name"]
+testTag.prototype.attributeChangedCallback = function(name, oldValue, newValue){
+  this.myname = newValue
+  this.connectedCallback()
+}
+
+customElements.define("test-tag", testTag)
+</script>
+
+<test-tag name="smith"></test-tag>

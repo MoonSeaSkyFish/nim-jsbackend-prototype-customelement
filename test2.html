@@ -1,0 +1,27 @@
+<h1>sample custom element used class</h1>
+
+<script>
+class testTag extends HTMLElement {
+  constructor(){
+    super()
+    this.myname = null
+  }
+
+  static get observedAttributes() {
+    return ["name"];
+  }
+  
+  attributeChangedCallback(name, oldValue, newValue) {
+    this.myname = newValue
+    this.connectedCallback()
+  }
+
+  connectedCallback(){
+    this.textContent = "Hello " + this.myname + "."
+  }
+  
+}
+customElements.define("test-tag", testTag)
+</script>
+
+<test-tag name="smith"></test-tag>
