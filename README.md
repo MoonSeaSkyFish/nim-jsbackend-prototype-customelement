@@ -66,7 +66,7 @@ No use class semantic on js. This used prototype.
 
 ```javascript
 function testTag(){
-  // super()
+  // This is same super()
   return  Reflect.construct(HTMLElement, [], new.target)
 }
 Object.setPrototypeOf(testTag.prototype, HTMLElement.prototype)
