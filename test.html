@@ -1,0 +1,31 @@
+<script>
+// prototype test 1
+function testObj(){}
+testObj.prototype.say = function(){alert("I say ok?")}
+var o = new testObj()
+o.say()
+
+// custom Elements class pattern
+class testTag extends HTMLElement{
+  constructor(){
+    super()
+  }
+  connectedCallback(){
+    this.textContent = "Hello, test tag class"
+  }
+}
+customElements.define("test-tag1", testTag)
+
+//custom Elements prototype pattern
+function testTag2(){
+  // super()
+  return  Reflect.construct(HTMLElement, [], new.target)
+}
+Object.setPrototypeOf(testTag2.prototype, HTMLElement.prototype)
+testTag2.prototype.connectedCallback = function(){ this.textContent = "Hello, test tag prototype"}
+customElements.define("test-tag2", testTag2)
+</script>
+
+<test-tag1></test-tag1>
+<br>
+<test-tag2></test-tag2>
